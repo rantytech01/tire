@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -1040,7 +1040,7 @@ function AdminUsers() {
   const [saving, setSaving] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<string>("cashier");
+  const [inviteRole, setInviteRole] = useState<AppRole>("cashier");
   const [inviting, setInviting] = useState(false);
 
   const loadStaff = useCallback(async () => {
@@ -1065,7 +1065,7 @@ function AdminUsers() {
 
   useEffect(() => { void loadStaff(); }, [loadStaff]);
 
-  const changeRole = async (userId: string, newRole: string) => {
+  const changeRole = async (userId: string, newRole: AppRole) => {
     setSaving(userId);
     try {
       const { error } = await supabase

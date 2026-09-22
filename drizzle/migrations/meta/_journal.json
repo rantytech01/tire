@@ -36,6 +36,13 @@
       "when": 1790064000000,
       "tag": "0004_rbac_admin_console",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790083776862,
+      "tag": "0005_core_shop_schema_v2",
+      "breakpoints": true
     }
   ]
 }

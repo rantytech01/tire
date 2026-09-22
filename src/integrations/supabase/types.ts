@@ -320,6 +320,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_stock: {
+        Args: {
+          p_change: number
+          p_note?: string
+          p_product_id: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -328,6 +337,18 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      list_staff: {
+        Args: never
+        Returns: {
+          created_at: string
+          role: string
+          user_id: string
+        }[]
+      }
+      set_staff_role: {
+        Args: { p_role: string; p_target_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "cashier" | "customer"

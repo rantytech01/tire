@@ -92,11 +92,12 @@ const TEN_YEARS_SECONDS = 60 * 60 * 24 * 365 * 10;
 export async function uploadProductImage(file: File): Promise<string> {
   const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
   const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext || "jpg"}`;
-  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+  const uploadOptions = {
     cacheControl: "31536000",
     upsert: false,
-    contentType: file.type || undefined,
-  });
+    ...(file.type ? { contentType: file.type } : {}),
+  };
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, uploadOptions);
   if (error) throw error;
   const { data, error: signError } = await supabase.storage
     .from(IMAGE_BUCKET)
