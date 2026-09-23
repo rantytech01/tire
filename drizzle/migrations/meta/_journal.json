@@ -64,6 +64,13 @@
       "when": 1790084200000,
       "tag": "0008_fix_car_photos_to_real_tires",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790084300000,
+      "tag": "0009_force_category_correct_photos",
+      "breakpoints": true
     }
   ]
 }
