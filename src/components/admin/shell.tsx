@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  Settings,
   ShieldAlert,
   Users,
   Warehouse,
@@ -16,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export type AdminTab = "dashboard" | "products" | "orders" | "stock" | "reports" | "users";
+export type AdminTab = "dashboard" | "products" | "orders" | "stock" | "reports" | "users" | "settings";
 
 type NavItem = {
   tab: AdminTab;
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { tab: "stock", label: "Stock", icon: Warehouse, requires: "manageStock" },
   { tab: "reports", label: "Reports", icon: BarChart3, requires: "viewReports" },
   { tab: "users", label: "Users", icon: Users, requires: "manageUsers" },
+  { tab: "settings", label: "Settings", icon: Settings, requires: "manageUsers" },
 ];
 
 function StaffLogin() {

@@ -1,10 +1,10 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
-import { SHOP_WHATSAPP } from "@/components/site-chrome";
 import { useCart } from "@/lib/cart";
 import { formatKES, type Product } from "@/lib/catalog";
 import { productsQuery } from "@/lib/shop-data";
+import { useSiteSettings } from "@/lib/site-settings";
 
 export const Route = createFileRoute("/cart")({
   loader: ({ context }) => context.queryClient.ensureQueryData(productsQuery),
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/cart")({
 
 function CartPage() {
   const { lines, setQty, remove, clear } = useCart();
+  const { whatsapp: SHOP_WHATSAPP } = useSiteSettings();
   const { data: products } = useSuspenseQuery(productsQuery);
   const bySlug = new Map<string, Product>(products.map((p) => [p.slug, p]));
 

@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import logo from "@/assets/whitegoose-logo.png";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
+import { useSiteSettings } from "@/lib/site-settings";
 
+// Deprecated: kept only as static fallbacks. Prefer useSiteSettings() so the
+// site reflects whatever the IT Administrator has set in the admin console.
 export const SHOP_PHONE = "+254 700 000 000";
 export const SHOP_WHATSAPP = "254700000000";
 export const SHOP_EMAIL = "sales@whitegoosetires.co.ke";
@@ -49,6 +52,7 @@ function AccountMenu() {
 export function SiteHeader() {
   const { count } = useCart();
   const [open, setOpen] = useState(false);
+  const { phone } = useSiteSettings();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
@@ -56,8 +60,8 @@ export function SiteHeader() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 text-xs">
           <p className="text-hairline text-primary">Quality • Service • Reliable</p>
           <div className="flex items-center gap-4">
-            <a href={`tel:${SHOP_PHONE.replace(/\s/g, "")}`} className="flex items-center gap-1.5 hover:text-primary">
-              <Phone className="size-3.5" /> {SHOP_PHONE}
+            <a href={`tel:${phone.replace(/\s/g, "")}`} className="flex items-center gap-1.5 hover:text-primary">
+              <Phone className="size-3.5" /> {phone}
             </a>
             <span className="hidden sm:inline text-ink-foreground/60">Free fitting & balancing</span>
           </div>
@@ -160,6 +164,7 @@ function MobileAccountLinks({ onNavigate }: { onNavigate: () => void }) {
 }
 
 export function SiteFooter() {
+  const { phone, email, address } = useSiteSettings();
   return (
     <footer className="mt-20 bg-ink text-ink-foreground">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-4">
@@ -187,9 +192,9 @@ export function SiteFooter() {
         <div>
           <h3 className="text-hairline text-primary">Get in touch</h3>
           <ul className="mt-4 space-y-2 text-sm text-ink-foreground/70">
-            <li>{SHOP_PHONE}</li>
-            <li>{SHOP_EMAIL}</li>
-            <li>{SHOP_ADDRESS}</li>
+            <li>{phone}</li>
+            <li>{email}</li>
+            <li>{address}</li>
           </ul>
         </div>
       </div>
@@ -201,9 +206,10 @@ export function SiteFooter() {
 }
 
 export function WhatsAppButton() {
+  const { whatsapp } = useSiteSettings();
   return (
     <a
-      href={`https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent("Hello Whitegoose Tires, I need a tyre quote.")}`}
+      href={`https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Whitegoose Tires, I need a tyre quote.")}`}
       target="_blank"
       rel="noreferrer"
       className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-glow transition-transform hover:scale-105"

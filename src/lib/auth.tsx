@@ -2,41 +2,59 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "manager" | "cashier" | "customer";
-export const STAFF_ROLES: AppRole[] = ["admin", "manager", "cashier"];
+export type AppRole = "admin" | "manager" | "cashier" | "salesperson" | "store" | "inventory" | "customer";
+
+/** Staff roles — anything other than a plain customer. */
+export const STAFF_ROLES: AppRole[] = ["admin", "manager", "cashier", "salesperson", "store", "inventory"];
+
+/** All assignable staff roles, in the order they should appear in role pickers. */
+export const ASSIGNABLE_STAFF_ROLES: AppRole[] = ["admin", "manager", "salesperson", "store", "inventory", "cashier"];
+
+export const ROLE_LABELS: Record<AppRole, string> = {
+  admin: "IT Administrator",
+  manager: "Manager",
+  cashier: "Cashier",
+  salesperson: "Salesperson",
+  store: "Store",
+  inventory: "Inventory",
+  customer: "Customer",
+};
+
+/** Highest-precedence role first — used when a user carries more than one role. */
+const ROLE_PRIORITY: AppRole[] = ["admin", "manager", "inventory", "store", "salesperson", "cashier", "customer"];
 
 /** Flat permission flags derived from the user's role set */
 export type Permissions = {
-  /** Root-only: IT Administrator — can manage users / grant roles */
+  /** Root-only: IT Administrator — can manage users / grant roles and edit site contact info */
   manageUsers: boolean;
-  /** Admin + Manager: can create/edit/delete products and upload photos */
+  /** Admin + Manager + Inventory: can create/edit/delete products and upload photos */
   manageCatalog: boolean;
-  /** Admin + Manager + Cashier: can adjust stock levels */
+  /** Admin + Manager + Cashier + Store + Inventory: can adjust stock levels */
   manageStock: boolean;
-  /** Admin + Manager: can update order and payment status */
+  /** Admin + Manager + Salesperson: can update order and payment status */
   manageOrders: boolean;
   /** Admin + Manager: can view revenue / sales reports */
   viewReports: boolean;
 };
 
-export type RoleLabel = "IT Administrator" | "Manager" | "Cashier" | "Customer";
+export type RoleLabel = (typeof ROLE_LABELS)[AppRole];
 
 export function roleLabel(roles: AppRole[]): RoleLabel {
-  if (roles.includes("admin")) return "IT Administrator";
-  if (roles.includes("manager")) return "Manager";
-  if (roles.includes("cashier")) return "Cashier";
-  return "Customer";
+  for (const r of ROLE_PRIORITY) {
+    if (roles.includes(r)) return ROLE_LABELS[r];
+  }
+  return ROLE_LABELS.customer;
 }
 
 function derivePermissions(roles: AppRole[]): Permissions {
-  const isAdmin = roles.includes("admin");
-  const isManager = roles.includes("manager");
-  const isCashier = roles.includes("cashier");
+  const has = (r: AppRole) => roles.includes(r);
+  const isAdmin = has("admin");
+  const isManager = has("manager");
   return {
     manageUsers: isAdmin,
-    manageCatalog: isAdmin || isManager,
-    manageStock: isAdmin || isManager || isCashier,
-    manageOrders: isAdmin || isManager,
+    manageCatalog: isAdmin || isManager || has("inventory"),
+    manageStock: isAdmin || isManager || has("cashier") || has("store") || has("inventory"),
+    manageOrders: isAdmin || isManager || has("salesperson"),
     viewReports: isAdmin || isManager,
   };
 }

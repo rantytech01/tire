@@ -315,6 +315,36 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          address: string
+          email: string
+          id: number
+          phone: string
+          updated_at: string
+          updated_by: string | null
+          whatsapp: string
+        }
+        Insert: {
+          address?: string
+          email?: string
+          id?: number
+          phone?: string
+          updated_at?: string
+          updated_by?: string | null
+          whatsapp?: string
+        }
+        Update: {
+          address?: string
+          email?: string
+          id?: number
+          phone?: string
+          updated_at?: string
+          updated_by?: string | null
+          whatsapp?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -328,9 +358,14 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      set_staff_role: { Args: { p_role: string; p_target_user_id: string }; Returns: undefined }
+      list_staff: {
+        Args: Record<PropertyKey, never>
+        Returns: { user_id: string; role: string; created_at: string }[]
+      }
     }
     Enums: {
-      app_role: "admin" | "manager" | "cashier" | "customer"
+      app_role: "admin" | "manager" | "cashier" | "salesperson" | "store" | "inventory" | "customer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -458,7 +493,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "cashier", "customer"],
+      app_role: ["admin", "manager", "cashier", "salesperson", "store", "inventory", "customer"],
     },
   },
 } as const

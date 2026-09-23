@@ -36,6 +36,27 @@
       "when": 1790064000000,
       "tag": "0004_rbac_admin_console",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790065000000,
+      "tag": "0005_expand_roles_and_site_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790065100000,
+      "tag": "0006_rbac_roles_and_contact_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790065200000,
+      "tag": "0007_fix_car_photos_to_real_tires",
+      "breakpoints": true
     }
   ]
 }

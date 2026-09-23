@@ -3,10 +3,10 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Check, Star } from "lucide-react";
 import { useState } from "react";
 import { ProductCard } from "@/components/product-card";
-import { SHOP_WHATSAPP } from "@/components/site-chrome";
 import { useCart } from "@/lib/cart";
 import { formatKES } from "@/lib/catalog";
 import { productsQuery } from "@/lib/shop-data";
+import { useSiteSettings } from "@/lib/site-settings";
 
 export const Route = createFileRoute("/product/$slug")({
   loader: async ({ context, params }) => {
@@ -50,6 +50,7 @@ function ProductPage() {
   const { product } = Route.useLoaderData();
   const { data: products } = useSuspenseQuery(productsQuery);
   const { add } = useCart();
+  const { whatsapp: SHOP_WHATSAPP } = useSiteSettings();
   const [qty, setQty] = useState(1);
   const related = products
     .filter((p) => p.category === product.category && p.slug !== product.slug)

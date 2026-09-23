@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import {
   Package,
   Pencil,
   Plus,
+  Settings,
   ShieldCheck,
   TrendingUp,
   Upload,
@@ -36,8 +37,9 @@ import {
 } from "recharts";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ASSIGNABLE_STAFF_ROLES, ROLE_LABELS, type AppRole } from "@/lib/auth";
 import { formatKES } from "@/lib/catalog";
+import { DEFAULT_SITE_SETTINGS, siteSettingsQuery, updateSiteSettings } from "@/lib/site-settings";
 import {
   adminSalesQuery,
   stockMovementsQuery,
@@ -100,7 +102,7 @@ type AdminOrder = OrderSummaryRow;
 const ORDER_STATUSES = ["pending", "confirmed", "fitting", "ready", "completed", "cancelled"] as const;
 const PAYMENT_STATUSES = ["unpaid", "partial", "paid", "refunded"] as const;
 const STOCK_REASONS = ["received", "sold", "adjustment", "damaged", "return"] as const;
-const APP_ROLES = ["admin", "manager", "cashier"] as const;
+const APP_ROLES = ASSIGNABLE_STAFF_ROLES;
 
 function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -121,6 +123,7 @@ function AdminPage() {
       {activeTab === "stock" && permissions.manageStock && <AdminStock />}
       {activeTab === "reports" && permissions.viewReports && <AdminReports />}
       {activeTab === "users" && permissions.manageUsers && <AdminUsers />}
+      {activeTab === "settings" && permissions.manageUsers && <AdminSettings />}
     </AdminShell>
   );
 }
@@ -1040,7 +1043,7 @@ function AdminUsers() {
   const [saving, setSaving] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<string>("cashier");
+  const [inviteRole, setInviteRole] = useState<string>("salesperson");
   const [inviting, setInviting] = useState(false);
 
   const loadStaff = useCallback(async () => {
@@ -1050,7 +1053,7 @@ function AdminUsers() {
     const { data, error } = await supabase
       .from("user_roles")
       .select("user_id, role, created_at")
-      .in("role", ["admin", "manager", "cashier"])
+      .in("role", APP_ROLES)
       .order("created_at", { ascending: true });
     if (error) { toast.error(error.message); setLoading(false); return; }
     // Map to display rows (email not available without admin API, show user_id)
@@ -1070,7 +1073,7 @@ function AdminUsers() {
     try {
       const { error } = await supabase
         .from("user_roles")
-        .update({ role: newRole })
+        .update({ role: newRole as AppRole })
         .eq("user_id", userId);
       if (error) throw error;
       toast.success("Role updated.");
@@ -1090,7 +1093,7 @@ function AdminUsers() {
         .from("user_roles")
         .delete()
         .eq("user_id", userId)
-        .in("role", ["admin", "manager", "cashier"]);
+        .in("role", APP_ROLES);
       if (error) throw error;
       toast.success("Access revoked.");
       await loadStaff();
@@ -1129,9 +1132,14 @@ function AdminUsers() {
   };
 
   const roleBadgeColor = (role: string) => {
-    if (role === "admin") return "bg-primary/10 text-primary border-primary/20";
-    if (role === "manager") return "bg-blue-500/10 text-blue-600 border-blue-500/20";
-    return "bg-muted text-muted-foreground border-border";
+    switch (role as AppRole) {
+      case "admin": return "bg-primary/10 text-primary border-primary/20";
+      case "manager": return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "salesperson": return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+      case "store": return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+      case "inventory": return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+      default: return "bg-muted text-muted-foreground border-border";
+    }
   };
 
   return (
@@ -1174,7 +1182,7 @@ function AdminUsers() {
                 </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${roleBadgeColor(s.role)}`}>
-                    {s.role === "admin" ? "IT Administrator" : s.role === "manager" ? "Manager" : "Cashier"}
+                    {ROLE_LABELS[s.role as AppRole] ?? s.role}
                   </span>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
@@ -1191,7 +1199,7 @@ function AdminUsers() {
                       <SelectContent>
                         {APP_ROLES.map((r) => (
                           <SelectItem key={r} value={r}>
-                            {r === "admin" ? "IT Administrator" : r === "manager" ? "Manager" : "Cashier"}
+                            {ROLE_LABELS[r]}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1232,21 +1240,26 @@ function AdminUsers() {
                 <th className="pb-2 text-left font-semibold text-muted-foreground">Permission</th>
                 <th className="pb-2 text-center font-semibold text-primary">IT Admin</th>
                 <th className="pb-2 text-center font-semibold text-blue-600">Manager</th>
+                <th className="pb-2 text-center font-semibold text-emerald-600">Salesperson</th>
+                <th className="pb-2 text-center font-semibold text-amber-600">Store</th>
+                <th className="pb-2 text-center font-semibold text-purple-600">Inventory</th>
                 <th className="pb-2 text-center font-semibold text-muted-foreground">Cashier</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {[
-                ["Manage staff & roles", true, false, false],
-                ["Create / edit products", true, true, false],
-                ["Upload tyre photos", true, true, false],
-                ["Update order status", true, true, false],
-                ["Adjust stock levels", true, true, true],
-                ["View sales reports", true, true, false],
-              ].map(([label, admin, manager, cashier]) => (
-                <tr key={label as string}>
-                  <td className="py-2.5 font-medium">{label as string}</td>
-                  {[admin, manager, cashier].map((v, i) => (
+              {(
+                [
+                  ["Manage staff & roles / edit contact info", true, false, false, false, false, false],
+                  ["Create / edit products", true, true, false, false, true, false],
+                  ["Upload tyre photos", true, true, false, false, true, false],
+                  ["Update order status", true, true, true, false, false, false],
+                  ["Adjust stock levels", true, true, false, true, true, true],
+                  ["View sales reports", true, true, false, false, false, false],
+                ] as [string, boolean, boolean, boolean, boolean, boolean, boolean][]
+              ).map(([label, admin, manager, salesperson, store, inventory, cashier]) => (
+                <tr key={label}>
+                  <td className="py-2.5 font-medium">{label}</td>
+                  {[admin, manager, salesperson, store, inventory, cashier].map((v, i) => (
                     <td key={i} className="py-2.5 text-center">
                       {v
                         ? <CheckCircle2 className="inline size-4 text-primary" />
@@ -1289,9 +1302,12 @@ function AdminUsers() {
               <Select value={inviteRole} onValueChange={setInviteRole}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">IT Administrator (root)</SelectItem>
-                  <SelectItem value="manager">Manager (executive)</SelectItem>
-                  <SelectItem value="cashier">Cashier</SelectItem>
+                  {APP_ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                      {r === "admin" ? " (root)" : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1302,6 +1318,97 @@ function AdminUsers() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Settings (contact info) — IT Administrator only ──────────────────────────
+
+function AdminSettings() {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery(siteSettingsQuery);
+  const [form, setForm] = useState(DEFAULT_SITE_SETTINGS);
+  const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  if (data && !hydrated) {
+    setForm(data);
+    setHydrated(true);
+  }
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await updateSiteSettings(form);
+      await queryClient.invalidateQueries({ queryKey: siteSettingsQuery.queryKey });
+      toast.success("Contact information updated — the site will reflect this immediately.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl space-y-6">
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+        <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <Settings className="size-4" /> Site contact information
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Shown in the top bar, footer, WhatsApp button and contact page across the whole site. Only the IT
+          Administrator can change this.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <form onSubmit={save} className="space-y-4 rounded-xl border border-border bg-card p-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="set-phone">Phone number (shown as-is, e.g. in top bar)</Label>
+            <Input
+              id="set-phone"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+254 700 000 000"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="set-whatsapp">WhatsApp number (digits only, with country code — no + or spaces)</Label>
+            <Input
+              id="set-whatsapp"
+              value={form.whatsapp}
+              onChange={(e) => setForm((f) => ({ ...f, whatsapp: e.target.value.replace(/[^0-9]/g, "") }))}
+              placeholder="254700000000"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="set-email">Email address</Label>
+            <Input
+              id="set-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="sales@whitegoosetires.co.ke"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="set-address">Address</Label>
+            <Textarea
+              id="set-address"
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              placeholder="Nairobi, Kenya"
+              rows={2}
+            />
+          </div>
+          <Button type="submit" disabled={saving} className="gap-1.5">
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
-import { SHOP_ADDRESS, SHOP_EMAIL, SHOP_PHONE, SHOP_WHATSAPP } from "@/components/site-chrome";
+import { useSiteSettings } from "@/lib/site-settings";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/contact")({
 
 function Contact() {
   const [form, setForm] = useState({ name: "", phone: "", message: "" });
+  const { phone: SHOP_PHONE, email: SHOP_EMAIL, address: SHOP_ADDRESS, whatsapp: SHOP_WHATSAPP } = useSiteSettings();
 
   const waLink = `https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(
     `Hello Whitegoose Tires.\nName: ${form.name}\nPhone: ${form.phone}\n${form.message}`,
