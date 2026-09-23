@@ -76,6 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  // The user id `roles` currently reflects — undefined until the very first
+  // fetch resolves. Comparing this to the live session's user id (rather than
+  // a plain boolean flag) avoids a one-frame gap where a new session is set
+  // but the roles-fetch effect hasn't run yet, which used to let `isStaff`
+  // read false for an instant and flash "no role assigned" right after login.
+  const [rolesLoadedFor, setRolesLoadedFor] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -90,9 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const userId = session?.user.id;
+    const userId = session?.user.id ?? null;
     if (!userId) {
       setRoles([]);
+      setRolesLoadedFor(null);
       return;
     }
     let active = true;
@@ -101,12 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("role")
       .eq("user_id", userId)
       .then(({ data }) => {
-        if (active) setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+        if (!active) return;
+        setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+        setRolesLoadedFor(userId);
       });
     return () => {
       active = false;
     };
   }, [session?.user.id]);
+
+  const rolesLoading = !!session && rolesLoadedFor !== session.user.id;
 
   const value: AuthValue = {
     session,
@@ -115,7 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isStaff: roles.some((r) => STAFF_ROLES.includes(r)),
     permissions: derivePermissions(roles),
     label: roleLabel(roles),
-    loading,
+    // Not "ready" until we also know this session's roles — otherwise isStaff
+    // briefly reads false the instant a session appears, before its roles
+    // have actually been fetched (this used to flash "no role assigned").
+    loading: loading || rolesLoading,
     signOut: async () => {
       await supabase.auth.signOut();
     },

@@ -69,8 +69,11 @@ export function SiteHeader() {
       </div>
 
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <Link to="/" className="flex shrink-0 items-center">
+        <Link to="/" className="flex shrink-0 items-center gap-2.5">
           <img src={logo} alt="Whitegoose Tires Ltd" className="h-12 w-auto" width={160} height={48} />
+          <span className="hidden text-lg font-bold uppercase tracking-tight text-foreground sm:inline">
+            Whitegoose Tires
+          </span>
         </Link>
 
         <nav className="ml-6 hidden items-center gap-6 lg:flex">
