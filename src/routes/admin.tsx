@@ -1043,7 +1043,7 @@ function AdminUsers() {
   const [saving, setSaving] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<string>("salesperson");
+  const [inviteRole, setInviteRole] = useState<AppRole>("cashier");
   const [inviting, setInviting] = useState(false);
 
   const loadStaff = useCallback(async () => {
@@ -1068,7 +1068,7 @@ function AdminUsers() {
 
   useEffect(() => { void loadStaff(); }, [loadStaff]);
 
-  const changeRole = async (userId: string, newRole: string) => {
+  const changeRole = async (userId: string, newRole: AppRole) => {
     setSaving(userId);
     try {
       const { error } = await supabase
@@ -1192,7 +1192,7 @@ function AdminUsers() {
                   {s.user_id !== me?.id ? (
                     <Select
                       value={s.role}
-                      onValueChange={(v) => changeRole(s.user_id, v)}
+                      onValueChange={(v) => changeRole(s.user_id, v as AppRole)}
                       disabled={saving === s.user_id}
                     >
                       <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
@@ -1299,7 +1299,7 @@ function AdminUsers() {
             </div>
             <div className="space-y-1.5">
               <Label>Assign role</Label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as AppRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {APP_ROLES.map((r) => (

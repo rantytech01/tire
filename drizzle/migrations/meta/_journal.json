@@ -40,22 +40,29 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1790065000000,
-      "tag": "0005_expand_roles_and_site_settings",
+      "when": 1790083776862,
+      "tag": "0005_core_shop_schema_v2",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1790065100000,
-      "tag": "0006_rbac_roles_and_contact_settings",
+      "when": 1790084000000,
+      "tag": "0006_expand_roles_and_site_settings",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1790065200000,
-      "tag": "0007_fix_car_photos_to_real_tires",
+      "when": 1790084100000,
+      "tag": "0007_rbac_roles_and_contact_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790084200000,
+      "tag": "0008_fix_car_photos_to_real_tires",
       "breakpoints": true
     }
   ]

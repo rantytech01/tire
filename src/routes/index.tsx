@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BadgeCheck, Clock, Truck, Wrench } from "lucide-react";
-import hero from "@/assets/hero-tyres.jpg";
+import hero from "@/assets/hero-tyre-tread.jpg";
 import { ProductCard } from "@/components/product-card";
 import { TyreFinder } from "@/components/tyre-finder";
 import { brandsQuery, categoriesQuery, productsQuery } from "@/lib/shop-data";

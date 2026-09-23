@@ -21,12 +21,14 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles (user_id)
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
 -- Any authenticated user can read their own roles (needed by the auth hook)
-CREATE POLICY IF NOT EXISTS "users_read_own_roles"
+DROP POLICY IF EXISTS "users_read_own_roles" ON public.user_roles;
+CREATE POLICY "users_read_own_roles"
   ON public.user_roles FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Only IT Administrators (role = 'admin') can insert / update / delete
-CREATE POLICY IF NOT EXISTS "admins_manage_all_roles"
+DROP POLICY IF EXISTS "admins_manage_all_roles" ON public.user_roles;
+CREATE POLICY "admins_manage_all_roles"
   ON public.user_roles FOR ALL
   USING (
     EXISTS (
@@ -46,7 +48,8 @@ CREATE POLICY IF NOT EXISTS "admins_manage_all_roles"
 -- ──────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.stock_movements ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "staff_insert_stock_movements"
+DROP POLICY IF EXISTS "staff_insert_stock_movements" ON public.stock_movements;
+CREATE POLICY "staff_insert_stock_movements"
   ON public.stock_movements FOR INSERT
   WITH CHECK (
     EXISTS (
@@ -56,7 +59,8 @@ CREATE POLICY IF NOT EXISTS "staff_insert_stock_movements"
     )
   );
 
-CREATE POLICY IF NOT EXISTS "staff_read_stock_movements"
+DROP POLICY IF EXISTS "staff_read_stock_movements" ON public.stock_movements;
+CREATE POLICY "staff_read_stock_movements"
   ON public.stock_movements FOR SELECT
   USING (
     EXISTS (
