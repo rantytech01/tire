@@ -1,14 +1,22 @@
 import { Link } from "@tanstack/react-router";
-import { Star } from "lucide-react";
+import { Check, Star } from "lucide-react";
+import { useState } from "react";
 import { formatKES, type Product } from "@/lib/catalog";
 import { useCart } from "@/lib/cart";
 
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
   const off = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
+  const [justAdded, setJustAdded] = useState(false);
+
+  const handleAdd = () => {
+    add(product.slug);
+    setJustAdded(true);
+    window.setTimeout(() => setJustAdded(false), 1400);
+  };
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:-translate-y-1 hover:border-primary/50">
+    <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg">
       <Link to="/product/$slug" params={{ slug: product.slug }} className="relative block bg-surface">
         <img
           src={product.image}
@@ -50,11 +58,21 @@ export function ProductCard({ product }: { product: Product }) {
 
         <button
           type="button"
-          onClick={() => add(product.slug)}
+          onClick={handleAdd}
           disabled={product.stock === 0}
-          className="mt-4 w-full rounded-md bg-ink py-2.5 text-sm font-bold uppercase tracking-wide text-ink-foreground transition-colors hover:bg-primary disabled:opacity-40"
+          className={`mt-4 flex w-full items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-bold uppercase tracking-wide transition-all duration-200 disabled:opacity-40 ${
+            justAdded
+              ? "scale-[1.02] bg-primary text-primary-foreground"
+              : "bg-ink text-ink-foreground hover:bg-primary"
+          }`}
         >
-          Add to cart
+          {justAdded ? (
+            <>
+              <Check className="size-4" /> Added
+            </>
+          ) : (
+            "Add to cart"
+          )}
         </button>
       </div>
     </article>

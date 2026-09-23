@@ -215,8 +215,9 @@ export function WhatsAppButton() {
       href={`https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Whitegoose Tires, I need a tyre quote.")}`}
       target="_blank"
       rel="noreferrer"
-      className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-glow transition-transform hover:scale-105"
+      className="group fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-glow transition-transform hover:scale-105"
     >
+      <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-primary/60 group-hover:animate-none" />
       WhatsApp us
     </a>
   );

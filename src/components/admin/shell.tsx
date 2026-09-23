@@ -235,14 +235,14 @@ export function StatCard({
         ? "bg-primary/10 text-primary"
         : "bg-ink/10 text-ink";
   return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
           <p className="mt-1 truncate text-2xl font-bold">{value}</p>
           {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
         </div>
-        <div className={`grid size-10 shrink-0 place-items-center rounded-lg ${toneClass}`}>{icon}</div>
+        <div className={`grid size-10 shrink-0 place-items-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${toneClass}`}>{icon}</div>
       </div>
     </div>
   );

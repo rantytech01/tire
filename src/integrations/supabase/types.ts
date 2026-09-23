@@ -59,6 +59,7 @@ export type Database = {
           product_id: string | null
           qty: number
           sku: string | null
+          unit_cost: number | null
           unit_price: number
         }
         Insert: {
@@ -69,6 +70,7 @@ export type Database = {
           product_id?: string | null
           qty: number
           sku?: string | null
+          unit_cost?: number | null
           unit_price: number
         }
         Update: {
@@ -79,6 +81,7 @@ export type Database = {
           product_id?: string | null
           qty?: number
           sku?: string | null
+          unit_cost?: number | null
           unit_price?: number
         }
         Relationships: [
@@ -345,6 +348,78 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_takes: {
+        Row: {
+          id: string
+          status: string
+          note: string | null
+          started_by: string | null
+          started_at: string
+          completed_by: string | null
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          status?: string
+          note?: string | null
+          started_by?: string | null
+          started_at?: string
+          completed_by?: string | null
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          status?: string
+          note?: string | null
+          started_by?: string | null
+          started_at?: string
+          completed_by?: string | null
+          completed_at?: string | null
+        }
+        Relationships: []
+      }
+      stock_take_items: {
+        Row: {
+          id: string
+          stock_take_id: string
+          product_id: string
+          expected_qty: number
+          counted_qty: number | null
+          note: string | null
+        }
+        Insert: {
+          id?: string
+          stock_take_id: string
+          product_id: string
+          expected_qty: number
+          counted_qty?: number | null
+          note?: string | null
+        }
+        Update: {
+          id?: string
+          stock_take_id?: string
+          product_id?: string
+          expected_qty?: number
+          counted_qty?: number | null
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_take_items_stock_take_id_fkey"
+            columns: ["stock_take_id"]
+            isOneToOne: false
+            referencedRelation: "stock_takes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_take_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -372,6 +447,8 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: { user_id: string; role: string; created_at: string }[]
       }
+      start_stock_take: { Args: { p_note?: string | null }; Returns: string }
+      apply_stock_take: { Args: { p_stock_take_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "manager" | "cashier" | "salesperson" | "store" | "inventory" | "customer"

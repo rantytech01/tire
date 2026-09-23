@@ -8,18 +8,22 @@ import {
   ArrowUp,
   BarChart3,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   DollarSign,
   ImagePlus,
   LayoutDashboard,
   Package,
   Pencil,
+  Percent,
   Plus,
   Settings,
   ShieldCheck,
+  TrendingDown,
   TrendingUp,
   Upload,
   Users,
+  Wallet,
   Warehouse,
   XCircle,
 } from "lucide-react";
@@ -47,7 +51,16 @@ import {
   sumRevenue,
   isSameDay,
   uploadProductImage,
+  adminProfitQuery,
+  buildProfitSeries,
+  sumProfit,
+  stockTakesQuery,
+  fetchStockTakeItems,
+  startStockTake,
+  setCountedQty,
+  applyStockTake,
   type SalesOrderRow,
+  type StockTakeItemRow,
 } from "@/lib/admin-data";
 import {
   adminOrdersQuery,
@@ -134,8 +147,16 @@ function AdminDashboard() {
   const { data: products, isLoading: lp } = useQuery(adminProductsQuery);
   const { data: orders, isLoading: lo } = useQuery(adminOrdersQuery);
   const { data: sales } = useQuery(adminSalesQuery);
+  const { data: profitLines } = useQuery(adminProfitQuery);
 
   const series7 = useMemo(() => buildDailySeries(sales ?? [], 7), [sales]);
+  const profit7 = useMemo(() => sumProfit((profitLines ?? []).filter((l) => {
+    if (!l.orders) return false;
+    const d = new Date(l.orders.created_at);
+    const wAgo = new Date();
+    wAgo.setDate(wAgo.getDate() - 7);
+    return d >= wAgo;
+  })), [profitLines]);
 
   if (lp || lo) return <p className="text-sm text-muted-foreground">Loading dashboard…</p>;
 
@@ -156,7 +177,7 @@ function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Revenue today"
           value={formatKES(revenueToday)}
@@ -169,6 +190,13 @@ function AdminDashboard() {
           value={formatKES(revenueThisWeek)}
           hint="Non-cancelled orders"
           icon={<TrendingUp className="size-5" />}
+        />
+        <StatCard
+          label="Gross profit (7d)"
+          value={formatKES(profit7.profit)}
+          hint={`${profit7.margin.toFixed(0)}% margin`}
+          icon={<Wallet className="size-5" />}
+          tone={profit7.profit >= 0 ? "success" : "warning"}
         />
         <StatCard
           label="Pending orders"
@@ -733,11 +761,18 @@ function AdminStock() {
   const { user } = useAuth();
   const { data: products, isLoading } = useQuery(adminProductsQuery);
   const { data: movements, isLoading: movLoading } = useQuery(stockMovementsQuery);
+  const { data: stockTakes, isLoading: takesLoading } = useQuery(stockTakesQuery);
   const [target, setTarget] = useState<AdminProduct | null>(null);
   const [change, setChange] = useState("0");
   const [reason, setReason] = useState<string>("received");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [takeId, setTakeId] = useState<string | null>(null);
+  const [takeItems, setTakeItems] = useState<StockTakeItemRow[]>([]);
+  const [counts, setCounts] = useState<Record<string, string>>({});
+  const [takeLoading, setTakeLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const lowStock = useMemo(() => (products ?? []).filter((p) => p.stock <= p.reorder_level), [products]);
 
@@ -746,6 +781,78 @@ function AdminStock() {
     setChange("0");
     setReason("received");
     setNote("");
+  };
+
+  const openCount = async (id: string) => {
+    setTakeLoading(true);
+    try {
+      const items = await fetchStockTakeItems(id);
+      setTakeId(id);
+      setTakeItems(items);
+      setCounts(Object.fromEntries(items.map((i) => [i.id, i.counted_qty != null ? String(i.counted_qty) : ""])));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't load that stock take.");
+    } finally {
+      setTakeLoading(false);
+    }
+  };
+
+  const beginNewCount = async () => {
+    setTakeLoading(true);
+    try {
+      const id = await startStockTake();
+      qc.invalidateQueries({ queryKey: ["admin", "stock-takes"] });
+      await openCount(id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't start a stock take.");
+    } finally {
+      setTakeLoading(false);
+    }
+  };
+
+  const closeCount = () => {
+    setTakeId(null);
+    setTakeItems([]);
+    setCounts({});
+  };
+
+  const saveCount = (itemId: string, value: string) => {
+    const trimmed = value.trim();
+    setCountedQty(itemId, trimmed === "" ? null : Math.max(0, Math.round(Number(trimmed)))).catch(() =>
+      toast.error("Couldn't save that count — check your connection.")
+    );
+  };
+
+  const finishCount = async () => {
+    if (!takeId) return;
+    setApplying(true);
+    try {
+      // Flush any counts the user typed but hasn't blurred out of yet.
+      await Promise.all(
+        takeItems.map((item) => {
+          const raw = (counts[item.id] ?? "").trim();
+          const value = raw === "" ? null : Math.max(0, Math.round(Number(raw)));
+          if (value === (item.counted_qty ?? null)) return Promise.resolve();
+          return setCountedQty(item.id, value);
+        })
+      );
+      await applyStockTake(takeId);
+      const variances = takeItems.filter((item) => {
+        const raw = (counts[item.id] ?? "").trim();
+        if (raw === "") return false;
+        return Math.round(Number(raw)) !== item.expected_qty;
+      }).length;
+      toast.success(variances > 0 ? `Stock take applied — ${variances} item(s) adjusted.` : "Stock take applied — no variances found.");
+      closeCount();
+      qc.invalidateQueries({ queryKey: ["admin", "products"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin", "stock-movements"] });
+      qc.invalidateQueries({ queryKey: ["admin", "stock-takes"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't apply the stock take.");
+    } finally {
+      setApplying(false);
+    }
   };
 
   const submitAdjustment = async (e: FormEvent) => {
@@ -787,6 +894,54 @@ function AdminStock() {
           </p>
         </div>
       )}
+
+      {/* Stock taking */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold uppercase">Stock taking</h2>
+          <Button size="sm" onClick={beginNewCount} disabled={takeLoading}>
+            <ClipboardCheck className="mr-1.5 size-4" /> Start new count
+          </Button>
+        </div>
+        <p className="mb-3 text-sm text-muted-foreground">
+          A stock take snapshots every product's system quantity, lets you enter what you physically counted, and
+          automatically corrects stock levels — logging each variance as an auditable movement — once you apply it.
+        </p>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Started</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Note</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {takesLoading && (
+                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+              )}
+              {(stockTakes ?? []).map((t) => (
+                <TableRow key={t.id}>
+                  <TableCell className="text-xs text-muted-foreground">{new Date(t.started_at).toLocaleString("en-KE")}</TableCell>
+                  <TableCell>
+                    {t.status === "open" ? <Badge variant="secondary">In progress</Badge> : <Badge variant="outline">Completed</Badge>}
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{t.note ?? "—"}</TableCell>
+                  <TableCell>
+                    {t.status === "open" && (
+                      <Button size="sm" variant="outline" onClick={() => openCount(t.id)}>Continue counting</Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!takesLoading && (stockTakes ?? []).length === 0 && (
+                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No stock takes yet.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       {/* Current levels */}
       <div>
@@ -907,6 +1062,74 @@ function AdminStock() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Stock take counting dialog */}
+      <Dialog open={Boolean(takeId)} onOpenChange={(v) => !v && closeCount()}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Stock count</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Enter what you physically counted for each product. Leave blank to skip an item — it won't be touched.
+            Your entries save automatically as you go.
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">System qty</TableHead>
+                  <TableHead className="text-right">Counted</TableHead>
+                  <TableHead className="text-right">Variance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {takeItems.map((item) => {
+                  const raw = counts[item.id] ?? "";
+                  const parsed = raw.trim() === "" ? null : Math.round(Number(raw));
+                  const variance = parsed === null ? null : parsed - item.expected_qty;
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <p className="font-medium">{item.products?.name ?? "—"}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{item.products?.sku ?? ""}</p>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">{item.expected_qty}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="ml-auto h-8 w-24 text-right"
+                          placeholder={String(item.expected_qty)}
+                          value={raw}
+                          onChange={(e) => setCounts((c) => ({ ...c, [item.id]: e.target.value }))}
+                          onBlur={(e) => saveCount(item.id, e.target.value)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {variance === null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : variance === 0 ? (
+                          <Badge variant="secondary">Match</Badge>
+                        ) : (
+                          <span className={`font-semibold ${variance > 0 ? "text-primary" : "text-destructive"}`}>
+                            {variance > 0 ? "+" : ""}{variance}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeCount}>Save & finish later</Button>
+            <Button type="button" onClick={finishCount} disabled={applying}>
+              {applying ? "Applying…" : "Apply count"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -916,10 +1139,13 @@ function AdminStock() {
 function AdminReports() {
   const { data: sales, isLoading } = useQuery(adminSalesQuery);
   const { data: products } = useQuery(adminProductsQuery);
+  const { data: profitLines, isLoading: profitLoading } = useQuery(adminProfitQuery);
   const [period, setPeriod] = useState<"7" | "14" | "30">("30");
 
   const days = Number(period);
   const series = useMemo(() => buildDailySeries(sales ?? [], days), [sales, days]);
+  const profitSeries = useMemo(() => buildProfitSeries(profitLines ?? [], days), [profitLines, days]);
+  const profitTotals = useMemo(() => sumProfit(profitLines ?? []), [profitLines]);
 
   const totalRevenue = useMemo(() => sumRevenue(sales ?? []), [sales]);
   const totalOrders = (sales ?? []).filter((o) => o.status !== "cancelled").length;
@@ -981,6 +1207,53 @@ function AdminReports() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      )}
+
+      {/* ─── Profit & loss ────────────────────────────────────────────────── */}
+      <div>
+        <h2 className="mb-3 text-base font-bold uppercase">Profit &amp; loss — last {period} days</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Revenue" value={formatKES(profitTotals.revenue)} icon={<DollarSign className="size-5" />} />
+          <StatCard label="Cost of goods sold" value={formatKES(profitTotals.cost)} icon={<Wallet className="size-5" />} tone="warning" />
+          <StatCard
+            label="Gross profit"
+            value={formatKES(profitTotals.profit)}
+            icon={profitTotals.profit >= 0 ? <TrendingUp className="size-5" /> : <TrendingDown className="size-5" />}
+            tone={profitTotals.profit >= 0 ? "success" : "warning"}
+          />
+        </div>
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm">
+          <Percent className="size-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Gross margin</span>
+          <span className={`ml-auto font-bold ${profitTotals.margin >= 0 ? "text-primary" : "text-destructive"}`}>
+            {profitTotals.margin.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      {profitLoading ? (
+        <p className="text-sm text-muted-foreground">Loading profit chart…</p>
+      ) : (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Revenue vs cost vs profit</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={profitSeries} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: number) => formatKES(v)} />
+                <Legend />
+                <Bar dataKey="revenue" name="Revenue" fill="#94a3b8" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="cost" name="Cost" fill="#f59e0b" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="profit" name="Profit" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Cost is each sold item's recorded cost price at the time of sale. Set cost prices on products (Products tab) for this to be accurate.
+          </p>
         </div>
       )}
 
